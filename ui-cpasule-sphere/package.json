@@ -1,0 +1,14 @@
+{
+  "name": "@uicapsule/globe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "git clean -xdf .cache .turbo dist node_modules"
+  },
+  "dependencies": {
+    "react": "*",
+    "react-dom": "*",
+    "three": "^0.180.0"
+  }
+}

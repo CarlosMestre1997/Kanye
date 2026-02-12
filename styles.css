@@ -6,33 +6,68 @@
 
 body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+    background: radial-gradient(circle farthest-corner, #060a33, #000000);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 20px;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Animated Sphere Background */
+#sphere-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+#sphere-background canvas {
+    display: block;
+}
+
+/* Content layering */
+.login-prompt,
+#main-container {
+    position: relative;
+    z-index: 1;
+}
+
+#main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
 }
 
 h1 {
     color: white;
     font-size: 2.5rem;
     margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    text-shadow: 0 0 20px rgba(29, 161, 242, 0.8), 2px 2px 4px rgba(0,0,0,0.4);
 }
 
 .subtitle {
     color: rgba(255,255,255,0.9);
     margin-bottom: 20px;
     font-size: 1.1rem;
+    text-align: center;
 }
 
 .score-board {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 15px 30px;
     border-radius: 30px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
     display: flex;
     gap: 30px;
 }
@@ -55,11 +90,13 @@ h1 {
 
 /* Classic Twitter Card Style */
 .tweet-card {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 12px;
     max-width: 500px;
     width: 100%;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
     overflow: hidden;
 }
 
@@ -188,19 +225,23 @@ h1 {
 .btn-yes {
     background: #17bf63;
     color: white;
+    box-shadow: 0 0 20px rgba(23, 191, 99, 0.5);
 }
 
 .btn-yes:hover {
     background: #14a857;
+    box-shadow: 0 0 30px rgba(23, 191, 99, 0.7);
 }
 
 .btn-no {
     background: #e0245e;
     color: white;
+    box-shadow: 0 0 20px rgba(224, 36, 94, 0.5);
 }
 
 .btn-no:hover {
     background: #c81e54;
+    box-shadow: 0 0 30px rgba(224, 36, 94, 0.7);
 }
 
 /* Result Feedback */
@@ -222,11 +263,14 @@ h1 {
 }
 
 .result-card {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 40px;
     border-radius: 20px;
     text-align: center;
     max-width: 400px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
     animation: popIn 0.3s ease;
 }
 
@@ -334,10 +378,12 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: white;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 8px 15px;
     border-radius: 25px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 15px rgba(0,0,0,0.2);
 }
 
 .user-avatar {
@@ -371,7 +417,9 @@ h1 {
 }
 
 .nav-btn {
-    background: white;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: none;
     padding: 10px 20px;
     border-radius: 20px;
@@ -392,11 +440,13 @@ h1 {
 
 /* Stats Panel */
 .stats-panel {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 12px;
     max-width: 500px;
     width: 100%;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
     padding: 20px;
 }
 
@@ -515,13 +565,15 @@ h1 {
 
 /* Login prompt */
 .login-prompt {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 12px;
     max-width: 400px;
     width: 100%;
     padding: 30px;
     text-align: center;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
 }
 
 .login-prompt h2 {
