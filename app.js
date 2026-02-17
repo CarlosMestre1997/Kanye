@@ -1,48 +1,263 @@
 // ============================================================
-// CONFIG - Replace with your Google Client ID
+// DID KANYE TWEET THIS? - Main Application
+// Using Supabase Auth for secure authentication
 // ============================================================
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
 // ============================================================
-// AUTH MODULE
+// SUPABASE DATABASE MODULE
+// ============================================================
+const Database = {
+    // Check if Supabase is available
+    isAvailable() {
+        return supabase !== null;
+    },
+
+    // Get or create user profile after Supabase Auth sign-in
+    async syncUserProfile(authUser) {
+        if (!this.isAvailable() || !authUser) return null;
+
+        try {
+            // First try to get existing user by auth_id
+            let { data: existingUser, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('auth_id', authUser.id)
+                .single();
+
+            if (fetchError && fetchError.code !== 'PGRST116') {
+                throw fetchError;
+            }
+
+            if (existingUser) {
+                // Update existing user
+                const { data, error } = await supabase
+                    .from('users')
+                    .update({
+                        email: authUser.email,
+                        name: authUser.user_metadata?.full_name || authUser.email,
+                        picture: authUser.user_metadata?.avatar_url,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('auth_id', authUser.id)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return data;
+            } else {
+                // Insert new user
+                const { data, error } = await supabase
+                    .from('users')
+                    .insert({
+                        auth_id: authUser.id,
+                        google_id: authUser.user_metadata?.provider_id || authUser.id,
+                        email: authUser.email,
+                        name: authUser.user_metadata?.full_name || authUser.email,
+                        picture: authUser.user_metadata?.avatar_url,
+                        is_admin: false
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return data;
+            }
+        } catch (err) {
+            console.error('Failed to sync user profile:', err);
+            return null;
+        }
+    },
+
+    // Get game stats for user
+    async getGameStats(userId) {
+        if (!this.isAvailable()) return null;
+
+        try {
+            const { data, error } = await supabase
+                .from('game_stats')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
+        } catch (err) {
+            console.error('Failed to get game stats:', err);
+            return null;
+        }
+    },
+
+    // Update game stats
+    async updateGameStats(userId, stats) {
+        if (!this.isAvailable()) return null;
+
+        try {
+            const { data, error } = await supabase
+                .from('game_stats')
+                .upsert({
+                    user_id: userId,
+                    best_score: stats.bestScore,
+                    games_played: stats.gamesPlayed,
+                    best_streak: stats.bestStreak,
+                    favorites: stats.favorites || [],
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'user_id'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (err) {
+            console.error('Failed to update game stats:', err);
+            return null;
+        }
+    },
+
+    // Subscribe to newsletter
+    async subscribeNewsletter(email, userId) {
+        if (!this.isAvailable()) return false;
+
+        try {
+            const { error } = await supabase
+                .from('newsletter_subscribers')
+                .upsert({
+                    email: email,
+                    user_id: userId,
+                    source: 'signup',
+                    is_active: true,
+                    consented_at: new Date().toISOString()
+                }, {
+                    onConflict: 'email',
+                    ignoreDuplicates: false
+                });
+
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('Failed to subscribe:', err);
+            return false;
+        }
+    }
+};
+
+// ============================================================
+// AUTH MODULE - Using Supabase Auth
 // ============================================================
 const Auth = {
-    currentUser: null,
+    currentUser: null,      // Supabase auth user
+    dbUser: null,           // Our users table profile
+    pendingNewsletterConsent: false,
 
-    // Google Sign-In callback (called by Google's library)
-    handleGoogleSignIn(response) {
-        const payload = Auth.parseJwt(response.credential);
-        Auth.currentUser = {
-            id: payload.sub,
-            name: payload.name,
-            email: payload.email,
-            picture: payload.picture
-        };
-        localStorage.setItem('kanye_user', JSON.stringify(Auth.currentUser));
-        UI.showMainApp();
+    // Sign in with Google via Supabase Auth
+    async signInWithGoogle() {
+        if (!supabase) {
+            alert('Authentication service not available');
+            return;
+        }
+
+        // Store newsletter consent preference before redirect
+        const newsletterConsent = document.getElementById('newsletter-consent')?.checked;
+        if (newsletterConsent) {
+            localStorage.setItem('pending_newsletter_consent', 'true');
+        }
+
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin + window.location.pathname
+            }
+        });
+
+        if (error) {
+            console.error('Sign-in error:', error);
+            alert('Failed to sign in. Please try again.');
+        }
     },
 
-    parseJwt(token) {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(jsonPayload);
-    },
-
-    signOut() {
+    // Sign out
+    async signOut() {
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
         Auth.currentUser = null;
+        Auth.dbUser = null;
         localStorage.removeItem('kanye_user');
         document.getElementById('login-prompt').classList.remove('hidden');
         document.getElementById('main-container').classList.add('hidden');
+        // Reset newsletter checkbox for next sign-in
+        const checkbox = document.getElementById('newsletter-consent');
+        if (checkbox) checkbox.checked = false;
     },
 
-    checkExistingSession() {
-        const savedUser = localStorage.getItem('kanye_user');
-        if (savedUser) {
-            Auth.currentUser = JSON.parse(savedUser);
+    // Handle auth state changes
+    async handleAuthChange(event, session) {
+        console.log('Auth state changed:', event);
+
+        if (session?.user) {
+            Auth.currentUser = session.user;
+            
+            // Sync user profile to our database
+            Auth.dbUser = await Database.syncUserProfile(session.user);
+            
+            if (Auth.dbUser) {
+                // Handle pending newsletter consent (from before OAuth redirect)
+                const pendingConsent = localStorage.getItem('pending_newsletter_consent');
+                if (pendingConsent === 'true') {
+                    await Database.subscribeNewsletter(Auth.dbUser.email, Auth.dbUser.id);
+                    localStorage.removeItem('pending_newsletter_consent');
+                }
+
+                // Load stats from database
+                const dbStats = await Database.getGameStats(Auth.dbUser.id);
+                if (dbStats) {
+                    const localData = {
+                        bestScore: dbStats.best_score,
+                        gamesPlayed: dbStats.games_played,
+                        bestStreak: dbStats.best_streak,
+                        favorites: dbStats.favorites || []
+                    };
+                    localStorage.setItem(Storage.getUserDataKey(), JSON.stringify(localData));
+                }
+            }
+
+            // Store basic user info for offline access
+            const userInfo = {
+                id: session.user.id,
+                name: session.user.user_metadata?.full_name || session.user.email,
+                email: session.user.email,
+                picture: session.user.user_metadata?.avatar_url
+            };
+            localStorage.setItem('kanye_user', JSON.stringify(userInfo));
+
             UI.showMainApp();
+        } else {
+            // Not signed in
+            Auth.currentUser = null;
+            Auth.dbUser = null;
+            document.getElementById('login-prompt').classList.remove('hidden');
+            document.getElementById('main-container').classList.add('hidden');
+        }
+    },
+
+    // Check for existing session on page load
+    async checkExistingSession() {
+        if (!supabase) {
+            // Fallback to localStorage if Supabase is not configured
+            const savedUser = localStorage.getItem('kanye_user');
+            if (savedUser) {
+                Auth.currentUser = JSON.parse(savedUser);
+                UI.showMainApp();
+                return true;
+            }
+            return false;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+            await Auth.handleAuthChange('INITIAL_SESSION', session);
             return true;
         }
         return false;
@@ -50,18 +265,28 @@ const Auth = {
 
     isAuthenticated() {
         return Auth.currentUser !== null;
+    },
+
+    // Get user display info
+    getUserInfo() {
+        if (!Auth.currentUser) return null;
+        
+        return {
+            id: Auth.currentUser.id,
+            name: Auth.currentUser.user_metadata?.full_name || Auth.currentUser.email,
+            email: Auth.currentUser.email,
+            picture: Auth.currentUser.user_metadata?.avatar_url
+        };
     }
 };
-
-// Make handleGoogleSignIn available globally for Google's callback
-window.handleGoogleSignIn = (response) => Auth.handleGoogleSignIn(response);
 
 // ============================================================
 // DATA PERSISTENCE MODULE
 // ============================================================
 const Storage = {
     getUserDataKey() {
-        return `kanye_data_${Auth.currentUser?.id || 'anonymous'}`;
+        const userId = Auth.dbUser?.id || Auth.currentUser?.id || 'anonymous';
+        return `kanye_data_${userId}`;
     },
 
     loadUserData() {
@@ -76,9 +301,14 @@ const Storage = {
 
     saveUserData(data) {
         localStorage.setItem(Storage.getUserDataKey(), JSON.stringify(data));
+        
+        // Sync to Supabase if available
+        if (Database.isAvailable() && Auth.dbUser) {
+            Database.updateGameStats(Auth.dbUser.id, data);
+        }
     },
 
-    updateStats(finalScore, maxStreak) {
+    async updateStats(finalScore, maxStreak) {
         if (!Auth.isAuthenticated()) return;
         
         const data = Storage.loadUserData();
@@ -231,14 +461,17 @@ const UI = {
         document.getElementById('login-prompt').classList.add('hidden');
         document.getElementById('main-container').classList.remove('hidden');
         
-        document.getElementById('user-name').textContent = Auth.currentUser.name;
-        document.getElementById('stats-user-name').textContent = Auth.currentUser.name;
-        
-        if (Auth.currentUser.picture) {
-            document.getElementById('user-avatar').src = Auth.currentUser.picture;
-            document.getElementById('user-avatar').style.display = 'block';
-        } else {
-            document.getElementById('user-avatar').style.display = 'none';
+        const userInfo = Auth.getUserInfo();
+        if (userInfo) {
+            document.getElementById('user-name').textContent = userInfo.name;
+            document.getElementById('stats-user-name').textContent = userInfo.name;
+            
+            if (userInfo.picture) {
+                document.getElementById('user-avatar').src = userInfo.picture;
+                document.getElementById('user-avatar').style.display = 'block';
+            } else {
+                document.getElementById('user-avatar').style.display = 'none';
+            }
         }
 
         Game.init();
@@ -376,12 +609,62 @@ const UI = {
                 </div>
             </div>
         `).join('');
+    },
+
+    showPrivacyPolicy() {
+        const modal = document.createElement('div');
+        modal.className = 'privacy-modal';
+        modal.innerHTML = `
+            <div class="privacy-modal-content">
+                <h2>Privacy Policy</h2>
+                <div class="privacy-body">
+                    <h3>Data We Collect</h3>
+                    <p>When you sign in with Google, we collect:</p>
+                    <ul>
+                        <li>Your name and email address</li>
+                        <li>Your profile picture (if available)</li>
+                        <li>Game statistics (scores, streaks)</li>
+                    </ul>
+                    
+                    <h3>How We Use Your Data</h3>
+                    <ul>
+                        <li>To save your game progress across sessions</li>
+                        <li>To display your profile in the app</li>
+                        <li>To send newsletters (only if you opt-in)</li>
+                    </ul>
+                    
+                    <h3>Data Security</h3>
+                    <p>Your data is protected using:</p>
+                    <ul>
+                        <li>Supabase Auth for secure authentication</li>
+                        <li>Row Level Security (RLS) to isolate user data</li>
+                        <li>HTTPS encryption for all communications</li>
+                    </ul>
+                    
+                    <h3>Newsletter</h3>
+                    <p>If you check the newsletter box, we'll occasionally send updates about new features. You can unsubscribe at any time.</p>
+                    
+                    <h3>Your Rights</h3>
+                    <p>You can request deletion of your data at any time by contacting us.</p>
+                </div>
+                <button class="btn-close-privacy" onclick="this.closest('.privacy-modal').remove()">Close</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
 };
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
-window.onload = function() {
-    Auth.checkExistingSession();
+window.onload = async function() {
+    // Set up auth state listener
+    if (supabase) {
+        supabase.auth.onAuthStateChange((event, session) => {
+            Auth.handleAuthChange(event, session);
+        });
+    }
+
+    // Check for existing session
+    await Auth.checkExistingSession();
 };

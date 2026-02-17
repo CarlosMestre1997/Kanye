@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Did Kanye Tweet This?</title>
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: #15202b;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .admin-header {
+            background: #192734;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #38444d;
+        }
+
+        .admin-header h1 {
+            font-size: 1.5rem;
+            color: #1da1f2;
+        }
+
+        .admin-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-user img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+        }
+
+        .admin-user span {
+            color: #8899a6;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #1da1f2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1a91da;
+        }
+
+        .btn-danger {
+            background: #e0245e;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c51f54;
+        }
+
+        .btn-secondary {
+            background: #38444d;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5c6a;
+        }
+
+        /* Access Denied */
+        .access-denied {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .access-denied h1 {
+            font-size: 3rem;
+            color: #e0245e;
+            margin-bottom: 20px;
+        }
+
+        .access-denied p {
+            color: #8899a6;
+            margin-bottom: 20px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #38444d;
+            border-top: 3px solid #1da1f2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Dashboard Container */
+        .dashboard {
+            display: none;
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Nav Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #38444d;
+            padding-bottom: 15px;
+        }
+
+        .nav-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid #38444d;
+            color: #8899a6;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            border-color: #1da1f2;
+            color: #1da1f2;
+        }
+
+        .nav-tab.active {
+            background: #1da1f2;
+            border-color: #1da1f2;
+            color: white;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #192734;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #38444d;
+        }
+
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1da1f2;
+        }
+
+        .stat-card .label {
+            color: #8899a6;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        /* Panel Sections */
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .panel-header h2 {
+            font-size: 1.3rem;
+        }
+
+        /* Tables */
+        .table-container {
+            background: #192734;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #38444d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #38444d;
+        }
+
+        th {
+            background: #22303c;
+            color: #8899a6;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        td {
+            color: #fff;
+        }
+
+        tr:hover {
+            background: #22303c;
+        }
+
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-cell img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: rgba(23, 191, 99, 0.2);
+            color: #17bf63;
+        }
+
+        .badge-danger {
+            background: rgba(224, 36, 94, 0.2);
+            color: #e0245e;
+        }
+
+        .badge-admin {
+            background: rgba(29, 161, 242, 0.2);
+            color: #1da1f2;
+        }
+
+        /* Export Button */
+        .export-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8899a6;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 600px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading State -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; color: #8899a6;">Loading...</p>
+    </div>
+
+    <!-- Access Denied -->
+    <div class="access-denied" id="access-denied" style="display: none;">
+        <h1>🚫</h1>
+        <h2>Access Denied</h2>
+        <p>You don't have permission to view this page.</p>
+        <a href="index.html" class="btn btn-primary">Back to Game</a>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div class="dashboard" id="dashboard">
+        <header class="admin-header">
+            <h1>🎛️ Admin Dashboard</h1>
+            <div class="admin-user">
+                <img id="admin-avatar" src="" alt="Admin">
+                <span id="admin-name">Admin</span>
+                <a href="index.html" class="btn btn-secondary">Back to Game</a>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid" id="stats-overview">
+            <div class="stat-card">
+                <div class="value" id="total-users">-</div>
+                <div class="label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="total-games">-</div>
+                <div class="label">Games Played</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="total-subscribers">-</div>
+                <div class="label">Newsletter Subscribers</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="new-users-7d">-</div>
+                <div class="label">New Users (7 days)</div>
+            </div>
+        </div>
+
+        <!-- Nav Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="Admin.showPanel('users')">👥 Users</button>
+            <button class="nav-tab" onclick="Admin.showPanel('subscribers')">📧 Newsletter</button>
+            <button class="nav-tab" onclick="Admin.showPanel('leaderboard')">🏆 Leaderboard</button>
+        </div>
+
+        <!-- Users Panel -->
+        <div class="panel active" id="panel-users">
+            <div class="panel-header">
+                <h2>All Users</h2>
+                <button class="btn btn-primary export-btn" onclick="Admin.exportUsers()">
+                    📥 Export CSV
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Best Score</th>
+                            <th>Games</th>
+                            <th>Newsletter</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Newsletter Panel -->
+        <div class="panel" id="panel-subscribers">
+            <div class="panel-header">
+                <h2>Newsletter Subscribers</h2>
+                <button class="btn btn-primary export-btn" onclick="Admin.exportSubscribers()">
+                    📥 Export Emails
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>User</th>
+                            <th>Source</th>
+                            <th>Subscribed</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subscribers-table">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Leaderboard Panel -->
+        <div class="panel" id="panel-leaderboard">
+            <div class="panel-header">
+                <h2>Top Players</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>Best Score</th>
+                            <th>Best Streak</th>
+                            <th>Games Played</th>
+                            <th>Last Played</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-table">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load shared config -->
+    <script src="config.js"></script>
+    
+    <script>
+        // Initialize Supabase client using shared config
+        const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+        // ============================================================
+        // ADMIN MODULE - Using Supabase Auth & Secure RPC Functions
+        // ============================================================
+        const Admin = {
+            currentUser: null,
+            dbUser: null,
+            stats: null,
+            users: [],
+            subscribers: [],
+            leaderboard: [],
+
+            async init() {
+                // Check for Supabase session
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (!session) {
+                    Admin.showAccessDenied();
+                    return;
+                }
+
+                Admin.currentUser = session.user;
+
+                // Get database user profile
+                const { data: dbUser, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('auth_id', session.user.id)
+                    .single();
+
+                if (userError || !dbUser) {
+                    console.error('Failed to get user profile:', userError);
+                    Admin.showAccessDenied();
+                    return;
+                }
+
+                Admin.dbUser = dbUser;
+
+                // Check if user is admin
+                if (!dbUser.is_admin) {
+                    Admin.showAccessDenied();
+                    return;
+                }
+
+                // Load dashboard data using secure RPC functions
+                await Admin.loadDashboard();
+            },
+
+            async loadDashboard() {
+                try {
+                    // Load stats using secure RPC function
+                    const { data: stats, error: statsError } = await supabase
+                        .rpc('get_admin_stats');
+
+                    if (statsError) throw statsError;
+                    
+                    if (stats) {
+                        Admin.stats = stats;
+                        Admin.updateStatsDisplay();
+                    }
+
+                    // Load users using secure RPC function
+                    const { data: users, error: usersError } = await supabase
+                        .rpc('get_admin_users');
+
+                    if (usersError) throw usersError;
+                    Admin.users = users || [];
+                    Admin.renderUsersTable();
+
+                    // Load subscribers using secure RPC function
+                    const { data: subscribers, error: subsError } = await supabase
+                        .rpc('get_admin_subscribers');
+
+                    if (subsError) throw subsError;
+                    Admin.subscribers = subscribers || [];
+                    Admin.renderSubscribersTable();
+
+                    // Load leaderboard using secure RPC function
+                    const { data: leaderboard, error: lbError } = await supabase
+                        .rpc('get_admin_leaderboard');
+
+                    if (lbError) throw lbError;
+                    Admin.leaderboard = leaderboard || [];
+                    Admin.renderLeaderboardTable();
+
+                    // Show dashboard
+                    Admin.showDashboard();
+
+                } catch (err) {
+                    console.error('Failed to load dashboard:', err);
+                    if (err.message?.includes('Access denied')) {
+                        Admin.showAccessDenied();
+                    } else {
+                        alert('Failed to load dashboard: ' + err.message);
+                    }
+                }
+            },
+
+            updateStatsDisplay() {
+                document.getElementById('total-users').textContent = Admin.stats.total_users || 0;
+                document.getElementById('total-games').textContent = Admin.stats.total_games_played || 0;
+                document.getElementById('total-subscribers').textContent = Admin.stats.active_subscribers || 0;
+                document.getElementById('new-users-7d').textContent = Admin.stats.new_users_7d || 0;
+            },
+
+            renderUsersTable() {
+                const tbody = document.getElementById('users-table');
+                
+                if (Admin.users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><h3>No users yet</h3></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = Admin.users.map(user => `
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <img src="${user.picture || 'https://via.placeholder.com/32'}" alt="">
+                                <span>${user.name || 'Unknown'}</span>
+                                ${user.is_admin ? '<span class="badge badge-admin">Admin</span>' : ''}
+                            </div>
+                        </td>
+                        <td>${user.email}</td>
+                        <td>${user.best_score || 0}</td>
+                        <td>${user.games_played || 0}</td>
+                        <td>
+                            ${user.newsletter_active 
+                                ? '<span class="badge badge-success">Subscribed</span>' 
+                                : '<span class="badge badge-danger">Not subscribed</span>'}
+                        </td>
+                        <td>${Admin.formatDate(user.created_at)}</td>
+                    </tr>
+                `).join('');
+            },
+
+            renderSubscribersTable() {
+                const tbody = document.getElementById('subscribers-table');
+                
+                if (Admin.subscribers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><h3>No subscribers yet</h3></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = Admin.subscribers.map(sub => `
+                    <tr>
+                        <td>${sub.email}</td>
+                        <td>${sub.user_name || '-'}</td>
+                        <td>signup</td>
+                        <td>${Admin.formatDate(sub.consented_at)}</td>
+                        <td>
+                            ${sub.is_active 
+                                ? '<span class="badge badge-success">Active</span>' 
+                                : '<span class="badge badge-danger">Unsubscribed</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            },
+
+            renderLeaderboardTable() {
+                const tbody = document.getElementById('leaderboard-table');
+                
+                if (Admin.leaderboard.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><h3>No games played yet</h3></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = Admin.leaderboard.map(player => `
+                    <tr>
+                        <td><strong>#${player.rank}</strong></td>
+                        <td>
+                            <div class="user-cell">
+                                <span>${player.name}</span>
+                            </div>
+                        </td>
+                        <td><strong>${player.best_score}</strong></td>
+                        <td>${player.best_streak} 🔥</td>
+                        <td>${player.games_played}</td>
+                        <td>-</td>
+                    </tr>
+                `).join('');
+            },
+
+            showPanel(panelName) {
+                // Update tabs
+                document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+                event.target.classList.add('active');
+
+                // Update panels
+                document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+                document.getElementById(`panel-${panelName}`).classList.add('active');
+            },
+
+            exportUsers() {
+                const csv = [
+                    ['Name', 'Email', 'Best Score', 'Games Played', 'Newsletter', 'Joined'].join(','),
+                    ...Admin.users.map(u => [
+                        `"${u.name || ''}"`,
+                        u.email,
+                        u.best_score || 0,
+                        u.games_played || 0,
+                        u.newsletter_active ? 'Yes' : 'No',
+                        u.created_at
+                    ].join(','))
+                ].join('\n');
+
+                Admin.downloadCSV(csv, 'kanye-users.csv');
+            },
+
+            exportSubscribers() {
+                const csv = [
+                    ['Email', 'Name', 'Subscribed Date', 'Active'].join(','),
+                    ...Admin.subscribers.map(s => [
+                        s.email,
+                        `"${s.user_name || ''}"`,
+                        s.consented_at,
+                        s.is_active ? 'Yes' : 'No'
+                    ].join(','))
+                ].join('\n');
+
+                Admin.downloadCSV(csv, 'kanye-subscribers.csv');
+            },
+
+            downloadCSV(csv, filename) {
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            },
+
+            formatDate(dateStr) {
+                if (!dateStr) return '-';
+                return new Date(dateStr).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            },
+
+            showDashboard() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('access-denied').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+
+                // Update admin info
+                const userInfo = Admin.currentUser.user_metadata;
+                document.getElementById('admin-name').textContent = userInfo?.full_name || Admin.currentUser.email;
+                if (userInfo?.avatar_url) {
+                    document.getElementById('admin-avatar').src = userInfo.avatar_url;
+                }
+            },
+
+            showAccessDenied() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('access-denied').style.display = 'flex';
+                document.getElementById('dashboard').style.display = 'none';
+            }
+        };
+
+        // Initialize on load
+        window.onload = () => Admin.init();
+    </script>
+</body>
+</html>
+
