@@ -9,7 +9,7 @@
 const Database = {
     // Check if Supabase is available
     isAvailable() {
-        return supabase !== null;
+        return supabaseClient !== null;
     },
 
     // Get or create user profile after Supabase Auth sign-in
@@ -18,7 +18,7 @@ const Database = {
 
         try {
             // First try to get existing user by auth_id
-            let { data: existingUser, error: fetchError } = await supabase
+            let { data: existingUser, error: fetchError } = await supabaseClient
                 .from('users')
                 .select('*')
                 .eq('auth_id', authUser.id)
@@ -30,7 +30,7 @@ const Database = {
 
             if (existingUser) {
                 // Update existing user
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('users')
                     .update({
                         email: authUser.email,
@@ -46,7 +46,7 @@ const Database = {
                 return data;
             } else {
                 // Insert new user
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('users')
                     .insert({
                         auth_id: authUser.id,
@@ -73,7 +73,7 @@ const Database = {
         if (!this.isAvailable()) return null;
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('game_stats')
                 .select('*')
                 .eq('user_id', userId)
@@ -92,7 +92,7 @@ const Database = {
         if (!this.isAvailable()) return null;
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('game_stats')
                 .upsert({
                     user_id: userId,
@@ -120,7 +120,7 @@ const Database = {
         if (!this.isAvailable()) return false;
 
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('newsletter_subscribers')
                 .upsert({
                     email: email,
@@ -152,18 +152,12 @@ const Auth = {
 
     // Sign in with Google via Supabase Auth
     async signInWithGoogle() {
-        if (!supabase) {
+        if (!supabaseClient) {
             alert('Authentication service not available');
             return;
         }
 
-        // Store newsletter consent preference before redirect
-        const newsletterConsent = document.getElementById('newsletter-consent')?.checked;
-        if (newsletterConsent) {
-            localStorage.setItem('pending_newsletter_consent', 'true');
-        }
-
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: window.location.origin + window.location.pathname
@@ -178,8 +172,8 @@ const Auth = {
 
     // Sign out
     async signOut() {
-        if (supabase) {
-            await supabase.auth.signOut();
+        if (supabaseClient) {
+            await supabaseClient.auth.signOut();
         }
         Auth.currentUser = null;
         Auth.dbUser = null;
@@ -202,13 +196,6 @@ const Auth = {
             Auth.dbUser = await Database.syncUserProfile(session.user);
             
             if (Auth.dbUser) {
-                // Handle pending newsletter consent (from before OAuth redirect)
-                const pendingConsent = localStorage.getItem('pending_newsletter_consent');
-                if (pendingConsent === 'true') {
-                    await Database.subscribeNewsletter(Auth.dbUser.email, Auth.dbUser.id);
-                    localStorage.removeItem('pending_newsletter_consent');
-                }
-
                 // Load stats from database
                 const dbStats = await Database.getGameStats(Auth.dbUser.id);
                 if (dbStats) {
@@ -243,7 +230,7 @@ const Auth = {
 
     // Check for existing session on page load
     async checkExistingSession() {
-        if (!supabase) {
+        if (!supabaseClient) {
             // Fallback to localStorage if Supabase is not configured
             const savedUser = localStorage.getItem('kanye_user');
             if (savedUser) {
@@ -254,7 +241,7 @@ const Auth = {
             return false;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session) {
             await Auth.handleAuthChange('INITIAL_SESSION', session);
@@ -651,6 +638,32 @@ const UI = {
             </div>
         `;
         document.body.appendChild(modal);
+    },
+
+    async handleNewsletterConsent(checked) {
+        if (!Auth.isAuthenticated() || !Auth.dbUser) {
+            console.log('User not authenticated, cannot save newsletter preference');
+            return;
+        }
+
+        if (checked) {
+            const success = await Database.subscribeNewsletter(Auth.dbUser.email, Auth.dbUser.id);
+            if (success) {
+                console.log('Subscribed to newsletter');
+            }
+        } else {
+            // Optionally handle unsubscribe
+            console.log('Newsletter unchecked');
+        }
+    },
+
+    updateNewsletterCheckbox() {
+        // This would check if user is already subscribed and update checkbox
+        // For now, just leave it unchecked by default
+        const checkbox = document.getElementById('newsletter-consent');
+        if (checkbox) {
+            checkbox.checked = false;
+        }
     }
 };
 
@@ -659,8 +672,8 @@ const UI = {
 // ============================================================
 window.onload = async function() {
     // Set up auth state listener
-    if (supabase) {
-        supabase.auth.onAuthStateChange((event, session) => {
+    if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange((event, session) => {
             Auth.handleAuthChange(event, session);
         });
     }

@@ -33,17 +33,6 @@
             <span>Sign in with Google</span>
         </button>
         
-        <div class="newsletter-consent">
-            <label class="consent-label">
-                <input type="checkbox" id="newsletter-consent" name="newsletter-consent">
-                <span class="checkmark"></span>
-                <span class="consent-text">
-                    I agree to receive occasional newsletters and updates about new features. 
-                    <a href="#" onclick="UI.showPrivacyPolicy(); return false;">Privacy Policy</a>
-                </span>
-            </label>
-        </div>
-        
         <div class="login-features">
             <h4>With Google Sign-In you get:</h4>
             <ul>
@@ -167,6 +156,18 @@
                 </div>
             </div>
         </div>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <p class="footer-credit">Made by <a href="https://carlosmestre.vercel.app/" target="_blank" rel="noopener noreferrer">Carlos Mestre</a></p>
+            <div class="footer-newsletter">
+                <label class="consent-label">
+                    <input type="checkbox" id="newsletter-consent" name="newsletter-consent" onchange="UI.handleNewsletterConsent(this.checked)">
+                    <span class="checkmark"></span>
+                    <span class="consent-text">I would like to hear more about cool projects like this!</span>
+                </label>
+            </div>
+        </footer>
     </div>
 
     <div class="result-overlay" id="result-overlay">

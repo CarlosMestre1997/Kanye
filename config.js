@@ -24,7 +24,7 @@ const CONFIG = {
 };
 
 // Initialize Supabase client (only if configured)
-let supabase = null;
+let supabaseClient = null;
 if (CONFIG.USE_SUPABASE && CONFIG.SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
-    supabase = window.supabase?.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase?.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 }

@@ -459,8 +459,7 @@
     <script src="config.js"></script>
     
     <script>
-        // Initialize Supabase client using shared config
-        const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+        // Uses supabaseClient from config.js
 
         // ============================================================
         // ADMIN MODULE - Using Supabase Auth & Secure RPC Functions
@@ -475,7 +474,7 @@
 
             async init() {
                 // Check for Supabase session
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session } } = await supabaseClient.auth.getSession();
                 
                 if (!session) {
                     Admin.showAccessDenied();
@@ -485,7 +484,7 @@
                 Admin.currentUser = session.user;
 
                 // Get database user profile
-                const { data: dbUser, error: userError } = await supabase
+                const { data: dbUser, error: userError } = await supabaseClient
                     .from('users')
                     .select('*')
                     .eq('auth_id', session.user.id)
@@ -512,7 +511,7 @@
             async loadDashboard() {
                 try {
                     // Load stats using secure RPC function
-                    const { data: stats, error: statsError } = await supabase
+                    const { data: stats, error: statsError } = await supabaseClient
                         .rpc('get_admin_stats');
 
                     if (statsError) throw statsError;
@@ -523,7 +522,7 @@
                     }
 
                     // Load users using secure RPC function
-                    const { data: users, error: usersError } = await supabase
+                    const { data: users, error: usersError } = await supabaseClient
                         .rpc('get_admin_users');
 
                     if (usersError) throw usersError;
@@ -531,7 +530,7 @@
                     Admin.renderUsersTable();
 
                     // Load subscribers using secure RPC function
-                    const { data: subscribers, error: subsError } = await supabase
+                    const { data: subscribers, error: subsError } = await supabaseClient
                         .rpc('get_admin_subscribers');
 
                     if (subsError) throw subsError;
@@ -539,7 +538,7 @@
                     Admin.renderSubscribersTable();
 
                     // Load leaderboard using secure RPC function
-                    const { data: leaderboard, error: lbError } = await supabase
+                    const { data: leaderboard, error: lbError } = await supabaseClient
                         .rpc('get_admin_leaderboard');
 
                     if (lbError) throw lbError;
